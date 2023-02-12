@@ -64,7 +64,8 @@ If you have the itch, I'd very much appreciate your help! I plan to work on this
 
 - Nice speed improvement over the reflection-based alternatives.
 - Validate while you're unmarshaling.
-- More control: nil maps can be changed to empty objects.
+- Nil maps and structs can be changed to empty objects.
+- Code can be re-used for other formats like URL-encoded form data or protobufs.
 
 ## Prior Art
 
