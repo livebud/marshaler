@@ -18,7 +18,7 @@ type Input struct {
 }
 ```
 
-This library will generate an UnmarshalJSON function that can take arbitrary JSON and produce `Input`:
+This library will generate an `UnmarshalJSON` function that can take arbitrary JSON and produce `Input`:
 
 ```go
 func UnmarshalJSON(json []byte, in *Input) error {
