@@ -58,7 +58,7 @@ This package is still very much WIP. There's a lot more work to do:
 - [ ] Bundle into Bud
 - [ ] Re-organize the package structure to allow more marshalers (e.g. form)
 
-If you have the itch, I'd very much appreciate your help! I plan to work on this here and there over the next couple months. Your PRs would speed up this timeline significantly!
+If you have the itch, I'd very much appreciate your help! I plan to work on this here and there over the next couple months. Your PRs would speed up this timeline significantly.
 
 ## Why?
 
