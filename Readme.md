@@ -68,7 +68,7 @@ If you have the itch, I'd very much appreciate your help! I plan to work on this
 
 ## Prior Art
 
-- [megajson](https://github.com/benbjohnson/megajson): No longer in development. No built-in validation. No nested structure support.
+- [megajson](https://github.com/benbjohnson/megajson): Simple, easy-to-understand code. Uses static analysis instead of build-time reflection. No longer in development. No built-in validation. No nested structure support.
 - [ffjson](https://github.com/pquerna/ffjson): More features. No updates since 2019. Recent issues unanswered. No built-in validation. Build-time reflection doesn't jibe well with Bud.
 - [go-codec](https://github.com/ugorji/go): Actively maintained. More features. Probably a better choice for the time being. No built-in validation. Build-time reflection doesn't jibe well with Bud.
 
