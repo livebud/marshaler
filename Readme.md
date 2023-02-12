@@ -67,6 +67,15 @@ If you have the itch, I'd very much appreciate your help! I plan to work on this
 - Nil maps and structs can be changed to empty objects.
 - Code can be re-used for other formats like URL-encoded form data or protobufs.
 
+## Development
+
+```
+git clone https://github.com/livebud/marshaler
+cd marshaler
+go mod tidy
+go test ./...
+```
+
 ## Prior Art
 
 - [megajson](https://github.com/benbjohnson/megajson): Simple, easy-to-understand code. Uses static analysis instead of build-time reflection. No longer in development. No built-in validation. No nested structure support.

@@ -11,8 +11,8 @@ import (
 	"testing/fstest"
 
 	"github.com/lithammer/dedent"
-	"github.com/livebud/codec/generator"
-	"github.com/livebud/codec/generator/decoder"
+	"github.com/livebud/marshaler/generator"
+	"github.com/livebud/marshaler/generator/decoder"
 	"github.com/matryer/is"
 )
 

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/livebud/codec/generator"
-	"github.com/livebud/codec/generator/parser"
+	"github.com/livebud/marshaler/generator"
+	"github.com/livebud/marshaler/generator/parser"
 )
 
 func New(fsys fs.FS) *Generator {
@@ -51,7 +51,7 @@ func (g *Generator) Generate(sel *generator.Selector) ([]byte, error) {
 				Name: "bytes",
 			},
 			{
-				Path: "github.com/livebud/codec/scanner",
+				Path: "github.com/livebud/marshaler/scanner",
 				Name: "scanner",
 			},
 		},
