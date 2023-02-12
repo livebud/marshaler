@@ -1,0 +1,197 @@
+package {{ $.Package.Name }}
+
+{{- if $.Imports }}
+
+import (
+	{{- range $import := $.Imports }}
+	{{$import.Name}} "{{$import.Path}}"
+	{{- end }}
+)
+{{- end }}
+
+{{/* Switch between the templates based on the types */}}
+{{- define "type" }}
+	{{- if eq .Type "string" }}
+		{{- template "string" . }}
+	{{- else if eq .Type "bool" }}
+		{{- template "bool" . }}
+	{{- else if eq .Type "int" }}
+		{{- template "int" . }}
+	{{- else if eq .Type "struct" }}
+		{{- template "struct" . }}
+	{{- else if eq .Type "map" }}
+		{{- template "map" . }}
+	{{- else if eq .Type "array" }}
+		{{- template "array" . }}
+	{{- else if eq .Type "float64" }}
+		{{- template "float64" . }}
+	{{- else if eq .Type "star" }}
+		{{- template "star" . }}
+	{{- else }}
+		return fmt.Errorf("missing template for %q", `{{ .Type }}`)
+	{{- end }}
+{{- end }}
+
+{{/* String type */}}
+{{- define "string" }}
+err = s.ReadString((*string)({{ .Target }}))
+if err != nil {
+	return err
+}
+{{- end }}
+
+{{/* Bool type */}}
+{{- define "bool" }}
+err = s.ReadBool((*bool)({{ .Target }}))
+if err != nil {
+	return err
+}
+{{- end }}
+
+{{/* Int type */}}
+{{- define "int" }}
+err = s.ReadInt((*int)({{ .Target }}))
+if err != nil {
+	return err
+}
+{{- end }}
+
+{{/* Float64 type */}}
+{{- define "float64" }}
+err = s.ReadFloat64((*float64)({{ .Target }}))
+if err != nil {
+	return err
+}
+{{- end }}
+
+{{/* Struct type */}}
+{{- define "struct" }}
+if _, err := s.Expect(scanner.TLBRACE); err != nil {
+	return err
+}
+for {
+	tok, buf, err := s.Scan()
+	if err != nil {
+		return err
+	}
+	key := string(buf)
+	// We're expecting either a string key or a closing brace
+	if tok == scanner.TRBRACE {
+		break
+	} else if tok != scanner.TSTRING {
+		return fmt.Errorf(`expected "}" or string, got %q`, scanner.TokenName(tok))
+	}
+	switch key {
+		{{- range $field := .Fields }}
+		case `{{ $field.Key }}`:
+			if _, err := s.Expect(scanner.TCOLON); err != nil {
+				return err
+			}
+			{{- template "type" $field.Type }}
+		{{ end }}
+		default:
+			return fmt.Errorf("unexpected key %q", key)
+	}
+	// Expect either a comma or a closing brace
+	tok, _, err = s.Scan()
+	if err != nil {
+		return err
+	}
+	if tok == scanner.TRBRACE {
+		break
+	} else if tok != scanner.TCOMMA {
+		return fmt.Errorf(`expected "}" or ",", got %q`, tok)
+	}
+}
+{{- end }}
+
+{{/* Map type */}}
+{{- define "map" }}
+if _, err := s.Expect(scanner.TLBRACE); err != nil {
+	return err
+}
+for {
+	tok, buf, err := s.Scan()
+	if err != nil {
+		return err
+	}
+	key := string(buf)
+	// We're expecting either a string key or a closing brace
+	if tok == scanner.TRBRACE {
+		// We got the closing }
+		break
+	} else if tok != scanner.TSTRING {
+		return fmt.Errorf(`expected "}" or string, got %q`, scanner.TokenName(tok))
+	}
+	// Read the colon
+	if _, err := s.Expect(scanner.TCOLON); err != nil {
+		return err
+	}
+	// Read the value
+	var val {{ .Value }}
+	{{- template "type" .Value }}
+	if {{ .Target }} == nil {
+		{{ .Target }} = make({{ . }})
+	}
+	{{ .Target }}[key] = val
+	// Expect either a comma or a closing brace
+	tok, _, err = s.Scan()
+	if err != nil {
+		return err
+	}
+	if tok == scanner.TRBRACE {
+		// Got closing "}"
+		break
+	} else if tok != scanner.TCOMMA {
+		return fmt.Errorf(`expected "}" or ",", got %q`, tok)
+	}
+}
+{{- end }}
+
+{{/* Array type */}}
+{{- define "array" }}
+if _, err := s.Expect(scanner.TLBRACKET); err != nil {
+	return err
+}
+for {
+	tok, buf, err := s.Scan()
+	if err != nil {
+		return err
+	}
+	if tok == scanner.TRBRACKET {
+		break
+	}
+	// If it's not a ], then push the token back on
+	s.Unscan(tok, buf)
+	// Scan the token again with the proper reader
+	var val {{ .Elt }}
+	{{- template "type" .Elt }}
+	{{ .Target }} = append({{ .Target }}, val)
+	// Next is either a , or a ]
+	tok, _, err = s.Scan()
+	if err != nil {
+		return err
+	}
+	if tok == scanner.TRBRACKET {
+		break
+	} else if tok != scanner.TCOMMA {
+		return fmt.Errorf(`expected "]" or ",", got %q`, tok)
+	}
+}
+{{- end }}
+
+{{/* Star type */}}
+{{- define "star" }}
+val := new({{ .X }})
+{{- template "type" .X }}
+{{ .Target }} = val
+{{- end }}
+
+// UnmarshalJSON unmarshals buf into in
+func UnmarshalJSON(buf []byte, in *{{ $.Name }}) (err error) {
+	s := scanner.NewScanner(bytes.NewBuffer(buf))
+	_ = s
+	_ = fmt.Errorf
+	{{- template "type" $.Schema }}
+	return nil
+}
