@@ -47,7 +47,7 @@ func ReadBody(r io.ReadCloser) (*Input, error) {
 This package is still very much WIP. There's a lot more work to do:
 
 - [ ] Unmarshal nested structs (get the skipped test to work)
-- [ ] Get tests running from a temporary directory
+- [x] Get tests running from a temporary directory
 - [ ] Support the json tag
 - [ ] Add MarshalJSON support using the writer
 - [ ] Resolve nested named types with the parser
@@ -56,7 +56,7 @@ This package is still very much WIP. There's a lot more work to do:
 - [ ] Encode nil maps and nil structs as empty objects
 - [ ] Fallback to `json.{Decode,Encode}` (?)
 - [ ] Bundle into Bud
-- [ ] Re-organize the package structure to allow more marshalers (e.g. form)
+- [x] Re-organize the package structure to allow more marshalers (e.g. form)
 
 If you have the itch, I'd very much appreciate your help! I plan to work on this here and there over the next couple months. Your PRs would speed up this timeline significantly.
 

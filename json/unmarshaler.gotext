@@ -1,15 +1,4 @@
-package {{ $.Package.Name }}
-
-{{- if $.Imports }}
-
-import (
-	{{- range $import := $.Imports }}
-	{{$import.Name}} "{{$import.Path}}"
-	{{- end }}
-)
-{{- end }}
-
-{{/* Switch between the templates based on the types */}}
+{{- /* Switch between the templates based on the types */ -}}
 {{- define "type" }}
 	{{- if eq .Type "string" }}
 		{{- template "string" . }}
@@ -32,7 +21,7 @@ import (
 	{{- end }}
 {{- end }}
 
-{{/* String type */}}
+{{- /* String type */ -}}
 {{- define "string" }}
 err = s.ReadString((*string)({{ .Target }}))
 if err != nil {
@@ -40,15 +29,15 @@ if err != nil {
 }
 {{- end }}
 
-{{/* Bool type */}}
+{{- /* Bool type */ -}}
 {{- define "bool" }}
 err = s.ReadBool((*bool)({{ .Target }}))
 if err != nil {
 	return err
 }
-{{- end }}
+{{- end -}}
 
-{{/* Int type */}}
+{{- /* Int type */ -}}
 {{- define "int" }}
 err = s.ReadInt((*int)({{ .Target }}))
 if err != nil {
@@ -56,7 +45,7 @@ if err != nil {
 }
 {{- end }}
 
-{{/* Float64 type */}}
+{{- /* Float64 type */ -}}
 {{- define "float64" }}
 err = s.ReadFloat64((*float64)({{ .Target }}))
 if err != nil {
@@ -64,7 +53,7 @@ if err != nil {
 }
 {{- end }}
 
-{{/* Struct type */}}
+{{- /* Struct type */ -}}
 {{- define "struct" }}
 if _, err := s.Expect(scanner.TLBRACE); err != nil {
 	return err
@@ -87,7 +76,7 @@ for {
 			if _, err := s.Expect(scanner.TCOLON); err != nil {
 				return err
 			}
-			{{- template "type" $field.Type }}
+			{{ template "type" $field.Type }}
 		{{ end }}
 		default:
 			return fmt.Errorf("unexpected key %q", key)
@@ -105,8 +94,8 @@ for {
 }
 {{- end }}
 
-{{/* Map type */}}
-{{- define "map" }}
+{{- /* Map type */ -}}
+{{- define "map" -}}
 if _, err := s.Expect(scanner.TLBRACE); err != nil {
 	return err
 }
@@ -148,7 +137,7 @@ for {
 }
 {{- end }}
 
-{{/* Array type */}}
+{{- /* Array type */ -}}
 {{- define "array" }}
 if _, err := s.Expect(scanner.TLBRACKET); err != nil {
 	return err
@@ -180,13 +169,14 @@ for {
 }
 {{- end }}
 
-{{/* Star type */}}
+{{- /* Star type */ -}}
 {{- define "star" }}
 val := new({{ .X }})
 {{- template "type" .X }}
 {{ .Target }} = val
 {{- end }}
 
+{{- /* Generated Unmarshaler */ -}}
 // UnmarshalJSON unmarshals buf into in
 func UnmarshalJSON(buf []byte, in *{{ $.Name }}) (err error) {
 	s := scanner.NewScanner(bytes.NewBuffer(buf))

@@ -1,65 +1,70 @@
-package decoder
+package json
 
 import (
 	"bytes"
 	_ "embed"
 	"fmt"
 	"go/ast"
-	"io/fs"
 	"strings"
 	"text/template"
-
-	"github.com/livebud/marshaler/generator"
-	"github.com/livebud/marshaler/generator/parser"
 )
 
-func New(fsys fs.FS) *Generator {
-	return &Generator{fsys}
+type Unmarshaler struct {
+	// Import path we're generating code into
+	TargetPath string
+	// Find the type spec for the given import path and name
+	Find func(importPath string, name string) (ast.Expr, error)
+	// Add an import to the generated code
+	Import func(path string) (name string, err error)
 }
 
-type Generator struct {
-	fsys fs.FS
+//go:embed unmarshaler.gotext
+var unmarshalerTemplate string
+
+var generator = template.Must(template.New("unmarshaler").Parse(unmarshalerTemplate))
+
+var generatorImports = []string{
+	"fmt",
+	"github.com/livebud/marshaler/json/scanner",
+	"bytes",
 }
 
-//go:embed decoder.gotext
-var decodeTemplate string
+// TODO: allow the import path name to be customized
+func (u *Unmarshaler) typeName(importPath, name string) (string, error) {
+	if u.TargetPath == importPath {
+		return name, nil
+	}
+	importName, err := u.Import(importPath)
+	if err != nil {
+		return "", err
+	}
+	return importName + "." + name, nil
+}
 
-var decoderGenerator = template.Must(template.New("decoder.gotext").Parse(decodeTemplate))
-
-func (g *Generator) Generate(sel *generator.Selector) ([]byte, error) {
-	pkg, err := parser.Parse(g.fsys, sel.Dir)
+func (u *Unmarshaler) Generate(importPath, name string) ([]byte, error) {
+	expr, err := u.Find(importPath, name)
 	if err != nil {
 		return nil, err
 	}
-	typeSpec, ok := pkg.TypeSpec(sel.Type)
-	if !ok {
-		return nil, fmt.Errorf("decoder: type %s not found", sel.Type)
+	schema, err := fromExpr(expr, "in")
+	if err != nil {
+		return nil, err
 	}
-	schema, err := fromExpr(typeSpec.Type, "in")
+	for _, importPath := range generatorImports {
+		if _, err := u.Import(importPath); err != nil {
+			return nil, err
+		}
+	}
+	typeName, err := u.typeName(importPath, name)
 	if err != nil {
 		return nil, err
 	}
 	state := State{
-		Package: pkg,
-		Imports: []*Import{
-			{
-				Path: "fmt",
-				Name: "fmt",
-			},
-			{
-				Path: "bytes",
-				Name: "bytes",
-			},
-			{
-				Path: "github.com/livebud/marshaler/scanner",
-				Name: "scanner",
-			},
-		},
-		Name:   sel.Type, // TODO: support selector expressions
 		Schema: schema,
+		Name:   typeName,
 	}
 	code := new(bytes.Buffer)
-	if err := decoderGenerator.Execute(code, state); err != nil {
+	if err := generator.Execute(code, state); err != nil {
 		return nil, err
 	}
 	return code.Bytes(), nil
@@ -160,16 +165,9 @@ func fromStar(s *ast.StarExpr, target string) (*Star, error) {
 	}, nil
 }
 
-type Import struct {
-	Name string
-	Path string
-}
-
 type State struct {
-	Package *parser.Package
-	Imports []*Import
-	Name    string
-	Schema  Type
+	Schema Type
+	Name   string
 }
 
 type Type interface {
