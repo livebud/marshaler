@@ -80,28 +80,6 @@ func (f *Finder) importRemote(modFile *modfile.File, importPath string, name str
 	return nil, fmt.Errorf("find remote for %q.%s not implemneted yet", importPath, name)
 }
 
-type Package struct {
-	Name  string
-	Files []*ast.File
-}
-
-func (p *Package) TypeSpec(name string) (*ast.TypeSpec, bool) {
-	for _, file := range p.Files {
-		for _, decl := range file.Decls {
-			if gen, ok := decl.(*ast.GenDecl); ok {
-				for _, spec := range gen.Specs {
-					if ts, ok := spec.(*ast.TypeSpec); ok {
-						if ts.Name.Name == name {
-							return ts, true
-						}
-					}
-				}
-			}
-		}
-	}
-	return nil, false
-}
-
 func trimModulePath(modulePath string, importPath string) string {
 	if modulePath == importPath {
 		return ""
