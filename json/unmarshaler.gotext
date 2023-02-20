@@ -23,38 +23,35 @@
 
 {{- /* String type */ -}}
 {{- define "string" }}
-err = s.ReadString((*string)({{ .Target }}))
-if err != nil {
+if err := s.ReadString((*string)({{ .Target }})); err != nil {
 	return err
 }
 {{- end }}
 
 {{- /* Bool type */ -}}
 {{- define "bool" }}
-err = s.ReadBool((*bool)({{ .Target }}))
-if err != nil {
+if err := s.ReadBool((*bool)({{ .Target }})); err != nil {
 	return err
 }
 {{- end -}}
 
 {{- /* Int type */ -}}
 {{- define "int" }}
-err = s.ReadInt((*int)({{ .Target }}))
-if err != nil {
+if err := s.ReadInt((*int)({{ .Target }})); err != nil {
 	return err
 }
 {{- end }}
 
 {{- /* Float64 type */ -}}
 {{- define "float64" }}
-err = s.ReadFloat64((*float64)({{ .Target }}))
-if err != nil {
+if err := s.ReadFloat64((*float64)({{ .Target }})); err != nil {
 	return err
 }
 {{- end }}
 
 {{- /* Struct type */ -}}
 {{- define "struct" }}
+// Scanning struct
 if _, err := s.Expect(scanner.TLBRACE); err != nil {
 	return err
 }
@@ -68,7 +65,7 @@ for {
 	if tok == scanner.TRBRACE {
 		break
 	} else if tok != scanner.TSTRING {
-		return fmt.Errorf(`expected "}" or string, got %q`, scanner.TokenName(tok))
+		return fmt.Errorf(`%d: expected "}" or string, got %q`, s.Pos(), scanner.TokenName(tok))
 	}
 	switch key {
 		{{- range $field := .Fields }}
@@ -89,9 +86,9 @@ for {
 	if tok == scanner.TRBRACE {
 		break
 	} else if tok != scanner.TCOMMA {
-		return fmt.Errorf(`expected "}" or ",", got %q`, tok)
+		return fmt.Errorf(`%d: expected "}" or ",", got %q`, s.Pos(), tok)
 	}
-}
+} // Scanned struct
 {{- end }}
 
 {{- /* Map type */ -}}
@@ -110,19 +107,19 @@ for {
 		// We got the closing }
 		break
 	} else if tok != scanner.TSTRING {
-		return fmt.Errorf(`expected "}" or string, got %q`, scanner.TokenName(tok))
+		return fmt.Errorf(`%d: expected "}" or string, got %q`, s.Pos(), scanner.TokenName(tok))
 	}
 	// Read the colon
 	if _, err := s.Expect(scanner.TCOLON); err != nil {
 		return err
 	}
 	// Read the value
-	var val {{ .Value }}
+	var val{{.Depth}} {{ .Value }}
 	{{- template "type" .Value }}
 	if {{ .Target }} == nil {
 		{{ .Target }} = make({{ . }})
 	}
-	{{ .Target }}[key] = val
+	{{ .Target }}[key] = val{{.Depth}}
 	// Expect either a comma or a closing brace
 	tok, _, err = s.Scan()
 	if err != nil {
@@ -132,7 +129,7 @@ for {
 		// Got closing "}"
 		break
 	} else if tok != scanner.TCOMMA {
-		return fmt.Errorf(`expected "}" or ",", got %q`, tok)
+		return fmt.Errorf(`%d: expected "}" or ",", got %q`, s.Pos(), tok)
 	}
 }
 {{- end }}
@@ -153,9 +150,9 @@ for {
 	// If it's not a ], then push the token back on
 	s.Unscan(tok, buf)
 	// Scan the token again with the proper reader
-	var val {{ .Elt }}
+	var val{{.Depth}} {{ .Elt }}
 	{{- template "type" .Elt }}
-	{{ .Target }} = append({{ .Target }}, val)
+	{{ .Target }} = append({{ .Target }}, val{{.Depth}})
 	// Next is either a , or a ]
 	tok, _, err = s.Scan()
 	if err != nil {
@@ -164,16 +161,16 @@ for {
 	if tok == scanner.TRBRACKET {
 		break
 	} else if tok != scanner.TCOMMA {
-		return fmt.Errorf(`expected "]" or ",", got %q`, tok)
+		return fmt.Errorf(`%d: expected "]" or ",", got %q`, s.Pos(), tok)
 	}
 }
 {{- end }}
 
 {{- /* Star type */ -}}
 {{- define "star" }}
-val := new({{ .X }})
+val{{.Depth}} := new({{ .X }})
 {{- template "type" .X }}
-{{ .Target }} = val
+{{ .Target }} = val{{.Depth}}
 {{- end }}
 
 {{- /* Generated Unmarshaler */ -}}

@@ -151,6 +151,7 @@ func runTest(t testing.TB, test Test) {
 		is.Equal(err.Error(), test.Expect)
 		return
 	}
+	// fmt.Println(string(unmarshal))
 	// Add main.go's imports
 	_, err = imports.Import("fmt")
 	is.NoErr(err)
@@ -165,7 +166,6 @@ func runTest(t testing.TB, test Test) {
 		Unmarshal: string(unmarshal),
 		Input:     test.Input,
 	}))
-	// fmt.Println(mainGo.String())
 	// Write the main.go file out
 	mainPath := filepath.Join(test.Dir, "main.go")
 	is.NoErr(os.WriteFile(mainPath, []byte(redent(mainGo.String())), 0644))
@@ -224,9 +224,7 @@ func TestStruct(t *testing.T) {
 }
 
 func TestNestedStruct(t *testing.T) {
-	t.Skip("TODO: not finished")
 	runTest(t, Test{
-		Dir: "_tmp",
 		Files: map[string]string{
 			"input.go": `
 				package main
@@ -250,7 +248,7 @@ func TestNestedStruct(t *testing.T) {
 				}
 			`,
 		},
-		Input:  `{"B":"foo","C":1,"D":1.1,"E":true,"F":{"foo":"bar"},"G":[1,2,3],"H":"hello",I:{"B":"foo","C":1,"D":1.1,"E":true,"F":{"foo":"bar"},"G":[1,2,3],"H":"hello"}}`,
-		Expect: `{"B":"foo","C":1,"D":1.1,"E":true,"F":{"foo":"bar"},"G":[1,2,3],"H":"hello"}`,
+		Input:  `{"B":"foo","C":1,"D":1.1,"E":true,"F":{"foo":"bar"},"G":[1,2,3],"H":"hello","I":{"B":"foo","C":1,"D":1.1,"E":true,"F":{"foo":"bar"},"G":[1,2,3],"H":"hello"}}`,
+		Expect: `{"B":"foo","C":1,"D":1.1,"E":true,"F":{"foo":"bar"},"G":[1,2,3],"H":"hello","I":{"B":"foo","C":1,"D":1.1,"E":true,"F":{"foo":"bar"},"G":[1,2,3],"H":"hello"}}`,
 	})
 }

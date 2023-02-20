@@ -5,6 +5,8 @@ import (
 	_ "embed"
 	"fmt"
 	"go/ast"
+	"go/format"
+	"strconv"
 	"strings"
 	"text/template"
 )
@@ -46,7 +48,7 @@ func (u *Unmarshaler) Generate(importPath, name string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	schema, err := fromExpr(expr, "in")
+	schema, err := fromExpr(expr, 0, "in")
 	if err != nil {
 		return nil, err
 	}
@@ -67,30 +69,30 @@ func (u *Unmarshaler) Generate(importPath, name string) ([]byte, error) {
 	if err := generator.Execute(code, state); err != nil {
 		return nil, err
 	}
-	return code.Bytes(), nil
+	return format.Source(code.Bytes())
 }
 
-func fromExpr(x ast.Expr, target string) (Type, error) {
+func fromExpr(x ast.Expr, depth int, target string) (Type, error) {
 	switch x := x.(type) {
 	case *ast.Ident:
-		return fromIdent(x, target)
+		return fromIdent(x, depth, target)
 	case *ast.StructType:
-		return fromStruct(x, target)
+		return fromStruct(x, depth, target)
 	case *ast.MapType:
-		return fromMap(x, target)
+		return fromMap(x, depth, target)
 	case *ast.ArrayType:
-		return fromArray(x, target)
+		return fromArray(x, depth, target)
 	case *ast.StarExpr:
-		return fromStar(x, target)
+		return fromStar(x, depth, target)
 	default:
 		return nil, fmt.Errorf("fromExpr: %T not implemented", x)
 	}
 }
 
-func fromStruct(s *ast.StructType, target string) (*Struct, error) {
+func fromStruct(s *ast.StructType, depth int, target string) (*Struct, error) {
 	var fields []StructField
 	for _, f := range s.Fields.List {
-		dataType, err := fromExpr(f.Type, "&"+target+"."+f.Names[0].Name)
+		dataType, err := fromExpr(f.Type, depth+1, "&"+target+"."+f.Names[0].Name)
 		if err != nil {
 			return nil, err
 		}
@@ -99,70 +101,63 @@ func fromStruct(s *ast.StructType, target string) (*Struct, error) {
 			Type: dataType,
 		})
 	}
-	return &Struct{
-		Fields: fields,
-	}, nil
+	return &Struct{fields, depth, target}, nil
 }
 
-func fromIdent(i *ast.Ident, target string) (Type, error) {
+func fromIdent(i *ast.Ident, depth int, target string) (Type, error) {
 	switch i.Name {
 	case "string":
-		return String{target}, nil
+		return String{depth, target}, nil
 	case "int":
-		return Int{target}, nil
+		return Int{depth, target}, nil
 	case "float64":
-		return Float64{target}, nil
+		return Float64{depth, target}, nil
 	case "bool":
-		return Bool{target}, nil
+		return Bool{depth, target}, nil
 	}
 	return nil, fmt.Errorf("fromIdent: %q not implemented", i.Name)
 }
 
-func fromMap(m *ast.MapType, target string) (*Map, error) {
-	keyType, err := fromExpr(m.Key, target)
+func fromMap(m *ast.MapType, depth int, target string) (*Map, error) {
+	keyType, err := fromExpr(m.Key, depth+1, target)
 	if err != nil {
 		return nil, err
 	}
 	// Static target because it's defined in the template
-	valueType, err := fromExpr(m.Value, "&val")
+	valueType, err := fromExpr(m.Value, depth+1, "&val"+strconv.Itoa(depth))
 	if err != nil {
 		return nil, err
 	}
-	return &Map{
-		Key:   keyType,
-		Value: valueType,
-		// For maps, we pull the value out of the target first and you Go doesn't
-		// support `val := &target["key"]`, so we do `val := target["key"]` and
-		// then `&val` instead.
-		target: strings.TrimPrefix(target, "&"),
-	}, nil
+	// For maps, we pull the value out of the target first and you Go doesn't
+	// support `val := &target["key"]`, so we do `val := target["key"]` and
+	// then `&val` instead.
+	newTarget := strings.TrimPrefix(target, "&")
+	return &Map{keyType, valueType, depth, newTarget}, nil
 }
 
-func fromArray(a *ast.ArrayType, target string) (*Array, error) {
+func fromArray(a *ast.ArrayType, depth int, target string) (*Array, error) {
 	// Static target because it's defined in the template
-	dataType, err := fromExpr(a.Elt, "&val")
+	dataType, err := fromExpr(a.Elt, depth+1, "&val"+strconv.Itoa(depth))
 	if err != nil {
 		return nil, err
 	}
-	return &Array{
-		Elt: dataType,
-		// For arrays, we pull the value out of the target first and you Go doesn't
-		// support `&target := append(&target, val)`, so we do
-		// `target := append(target, val)` instead.
-		target: strings.TrimPrefix(target, "&"),
-	}, nil
+	// For arrays, we pull the value out of the target first and you Go doesn't
+	// support `&target := append(&target, val)`, so we do
+	// `target := append(target, val)` instead.
+	newTarget := strings.TrimPrefix(target, "&")
+	return &Array{dataType, depth, newTarget}, nil
 }
 
-func fromStar(s *ast.StarExpr, target string) (*Star, error) {
+func fromStar(s *ast.StarExpr, depth int, target string) (*Star, error) {
 	// Static target because it's defined in the template
-	dataType, err := fromExpr(s.X, "val")
+	dataType, err := fromExpr(s.X, depth+1, "val"+strconv.Itoa(depth))
 	if err != nil {
 		return nil, err
 	}
-	return &Star{
-		X:      dataType,
-		target: strings.TrimPrefix(target, "&"),
-	}, nil
+	// For stars, we pull the value out of the target first and you Go doesn't
+	// support `&target := val`, so we do `target := val` instead.
+	newTarget := strings.TrimPrefix(target, "&")
+	return &Star{dataType, depth, newTarget}, nil
 }
 
 type State struct {
@@ -173,7 +168,6 @@ type State struct {
 type Type interface {
 	Type() string
 	String() string
-	Target() string
 }
 
 func (String) Type() string  { return "string" }
@@ -186,19 +180,23 @@ func (Map) Type() string     { return "map" }
 func (Star) Type() string    { return "star" }
 
 type String struct {
-	target string
+	Depth  int
+	Target string
 }
 
 type Int struct {
-	target string
+	Depth  int
+	Target string
 }
 
 type Float64 struct {
-	target string
+	Depth  int
+	Target string
 }
 
 type Bool struct {
-	target string
+	Depth  int
+	Target string
 }
 
 func (String) String() string  { return "string" }
@@ -208,7 +206,8 @@ func (Bool) String() string    { return "bool" }
 
 type Struct struct {
 	Fields []StructField
-	target string
+	Depth  int
+	Target string
 }
 
 func (s *Struct) String() string {
@@ -229,7 +228,8 @@ type StructField struct {
 type Map struct {
 	Key    Type
 	Value  Type
-	target string
+	Depth  int
+	Target string
 }
 
 func (m Map) String() string {
@@ -238,7 +238,8 @@ func (m Map) String() string {
 
 type Array struct {
 	Elt    Type
-	target string
+	Depth  int
+	Target string
 }
 
 func (s Array) String() string {
@@ -247,18 +248,10 @@ func (s Array) String() string {
 
 type Star struct {
 	X      Type
-	target string
+	Depth  int
+	Target string
 }
 
 func (s Star) String() string {
 	return fmt.Sprintf("*%s", s.X.String())
 }
-
-func (t String) Target() string  { return t.target }
-func (t Int) Target() string     { return t.target }
-func (t Float64) Target() string { return t.target }
-func (t Bool) Target() string    { return t.target }
-func (t Struct) Target() string  { return t.target }
-func (t Array) Target() string   { return t.target }
-func (t Map) Target() string     { return t.target }
-func (t Star) Target() string    { return t.target }
