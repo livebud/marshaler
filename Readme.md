@@ -1,6 +1,6 @@
 # Marshaler (WIP)
 
-`Marshal` and `Unmarshal` generators for Go.
+`Unmarshal` and `Marshal` generators for Go. For use in [Bud](https://github.com/livebud/bud).
 
 ## Example
 
